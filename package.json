@@ -1,5 +1,6 @@
 {
-  "name": "react-example",
+  "name": "qr-code-generator",
+  "homepage": "https://github.com/Enyew-Mekete/QR-Code-Generator",
   "private": true,
   "version": "0.0.0",
   "type": "module",
