@@ -26,6 +26,8 @@ import {
   ChevronLeft,
   Download,
   Share2,
+  RotateCcw,
+  ExternalLink,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -111,8 +113,12 @@ export const CustomerMenuView: React.FC<CustomerMenuViewProps> = ({
     hasUploadedDocs ? 'document' : 'interactive'
   );
   const [activeDocIndex, setActiveDocIndex] = useState(0);
-  const [docZoom, setDocZoom] = useState(1);
+  const [docCardZoom, setDocCardZoom] = useState(1);
   const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
+  const [lightboxZoom, setLightboxZoom] = useState<number>(1);
+  const [lightboxPan, setLightboxPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [showShareToast, setShowShareToast] = useState(false);
 
   const cleanWebsiteUrl = useMemo(() => {
@@ -120,6 +126,18 @@ export const CustomerMenuView: React.FC<CustomerMenuViewProps> = ({
       .replace(/^https?:\/\//i, '')
       .replace(/\/+$/, '');
   }, [restaurant.website]);
+
+  const handleDownloadActiveDoc = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const activeFile = restaurant.uploadedMenuFiles?.[activeDocIndex];
+    const url = activeFile?.url || './assets/guansa_menu_sheet.png';
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = activeFile?.name || 'Guansa_Coffee_Menu_HD.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
 
   const handleShare = async () => {
     if (typeof navigator !== 'undefined' && navigator.share) {
@@ -355,15 +373,34 @@ export const CustomerMenuView: React.FC<CustomerMenuViewProps> = ({
             }}
           />
 
-          {/* Top Share Action Bar */}
-          <div className="relative z-20 flex justify-end p-4">
+          {/* Top Actions: Wi-Fi, Download HD, Share */}
+          <div className="relative z-20 flex justify-end items-center gap-2 p-4">
+            {restaurant.wifiSsid && (
+              <button
+                onClick={() => setShowWifiModal(true)}
+                className="px-3 py-1.5 text-white/90 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold backdrop-blur-md"
+                title="Guest Wi-Fi"
+                aria-label="Guest Wi-Fi"
+              >
+                <Wifi className="w-3.5 h-3.5 text-emerald-300" />
+                <span>Wi-Fi</span>
+              </button>
+            )}
+            <button
+              onClick={handleDownloadActiveDoc}
+              className="p-2 text-white/90 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors cursor-pointer backdrop-blur-md"
+              title="Download HD Menu"
+              aria-label="Download HD Menu"
+            >
+              <Download className="w-4 h-4 text-white" />
+            </button>
             <button
               onClick={handleShare}
-              className="p-2 text-white/90 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+              className="p-2 text-white/90 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors cursor-pointer backdrop-blur-md"
               title="Share Menu"
               aria-label="Share Menu"
             >
-              <Share2 className="w-5 h-5 text-white" />
+              <Share2 className="w-4 h-4 text-white" />
             </button>
           </div>
 
@@ -378,13 +415,15 @@ export const CustomerMenuView: React.FC<CustomerMenuViewProps> = ({
           </div>
 
           {/* Centered Floating Menu Sheet Card */}
-          <div className="relative z-20 px-4 sm:px-6 max-w-sm sm:max-w-md mx-auto">
+          <div className="relative z-20 px-3 sm:px-6 max-w-md sm:max-w-lg lg:max-w-xl mx-auto">
             <div
-              onClick={() =>
+              onClick={() => {
                 setLightboxImageUrl(
                   restaurant.uploadedMenuFiles[activeDocIndex]?.url || './assets/guansa_menu_sheet.png'
-                )
-              }
+                );
+                setLightboxZoom(1);
+                setLightboxPan({ x: 0, y: 0 });
+              }}
               className="relative bg-white rounded-2xl sm:rounded-3xl shadow-2xl shadow-black/25 overflow-hidden border border-black/5 cursor-pointer group transition-transform duration-200 active:scale-[0.99]"
             >
               <img
@@ -393,46 +432,77 @@ export const CustomerMenuView: React.FC<CustomerMenuViewProps> = ({
                 }
                 alt={restaurant.uploadedMenuFiles[activeDocIndex]?.name || 'Guansa Coffee Hub Menu'}
                 className="w-full h-auto object-contain block bg-white"
+                style={{
+                  imageRendering: '-webkit-optimize-contrast',
+                }}
                 loading="eager"
               />
 
               {/* Tap to Zoom indicator */}
-              <div className="absolute bottom-3 right-3 bg-slate-900/75 hover:bg-slate-900 text-white backdrop-blur-md px-2.5 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5 shadow-md opacity-85 group-hover:opacity-100 transition-opacity pointer-events-none">
+              <div className="absolute bottom-3 right-3 bg-slate-900/80 hover:bg-slate-900 text-white backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-md opacity-90 group-hover:opacity-100 transition-opacity pointer-events-none">
                 <Maximize2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Tap to Zoom</span>
+                <span>Tap for Full HD Zoom</span>
               </div>
             </div>
 
-            {/* Pagination Controls if Multiple Menu Sheets */}
-            {restaurant.uploadedMenuFiles.length > 1 && (
-              <div className="flex items-center justify-center gap-3 mt-3 text-xs font-semibold text-slate-600">
+            {/* Quick Action Toolbar Below Card */}
+            <div className="flex items-center justify-between gap-2 mt-3 px-1 text-xs">
+              <div className="flex items-center gap-2">
                 <button
-                  disabled={activeDocIndex === 0}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveDocIndex((prev) => Math.max(0, prev - 1));
-                  }}
-                  className="p-1.5 rounded-full bg-white shadow-xs border border-slate-200 disabled:opacity-30 cursor-pointer"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="font-mono text-slate-700">
-                  {activeDocIndex + 1} / {restaurant.uploadedMenuFiles.length}
-                </span>
-                <button
-                  disabled={activeDocIndex === restaurant.uploadedMenuFiles.length - 1}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveDocIndex((prev) =>
-                      Math.min(restaurant.uploadedMenuFiles.length - 1, prev + 1)
+                  type="button"
+                  onClick={() => {
+                    setLightboxImageUrl(
+                      restaurant.uploadedMenuFiles[activeDocIndex]?.url || './assets/guansa_menu_sheet.png'
                     );
+                    setLightboxZoom(1.5);
+                    setLightboxPan({ x: 0, y: 0 });
                   }}
-                  className="p-1.5 rounded-full bg-white shadow-xs border border-slate-200 disabled:opacity-30 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-slate-700 hover:text-slate-900 font-semibold rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition-colors cursor-pointer"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  <ZoomIn className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Zoom In</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadActiveDoc}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-slate-700 hover:text-slate-900 font-semibold rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition-colors cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Download HD</span>
                 </button>
               </div>
-            )}
+
+              {/* Pagination Controls if Multiple Menu Sheets */}
+              {restaurant.uploadedMenuFiles.length > 1 && (
+                <div className="flex items-center gap-2 font-mono text-xs text-slate-600">
+                  <button
+                    disabled={activeDocIndex === 0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveDocIndex((prev) => Math.max(0, prev - 1));
+                    }}
+                    className="p-1.5 rounded-lg bg-white border border-slate-200 disabled:opacity-30 cursor-pointer shadow-xs"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="font-semibold text-slate-700">
+                    {activeDocIndex + 1} / {restaurant.uploadedMenuFiles.length}
+                  </span>
+                  <button
+                    disabled={activeDocIndex === restaurant.uploadedMenuFiles.length - 1}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveDocIndex((prev) =>
+                        Math.min(restaurant.uploadedMenuFiles.length - 1, prev + 1)
+                      );
+                    }}
+                    className="p-1.5 rounded-lg bg-white border border-slate-200 disabled:opacity-30 cursor-pointer shadow-xs"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* Bottom Website Link Matching Exact User Screenshot */}
             <div className="text-center py-4">
@@ -444,32 +514,6 @@ export const CustomerMenuView: React.FC<CustomerMenuViewProps> = ({
               >
                 {cleanWebsiteUrl}
               </a>
-            </div>
-          </div>
-
-          {/* Floating Actions Pill: Table, Digital Order & Wi-Fi */}
-          <div className="fixed bottom-5 left-0 right-0 flex justify-center px-4 z-40 pointer-events-none">
-            <div className="pointer-events-auto flex items-center gap-2 bg-slate-900/95 backdrop-blur-md text-white p-1.5 pl-3.5 pr-2 rounded-full shadow-2xl border border-white/20">
-              <div className="text-xs font-semibold flex items-center gap-1.5 mr-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Table {tableNumber}</span>
-              </div>
-              <button
-                onClick={() => setCustomerViewMode('interactive')}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2 px-3.5 rounded-full flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
-              >
-                <UtensilsCrossed className="w-3.5 h-3.5" />
-                <span>Order Online</span>
-              </button>
-              {restaurant.wifiSsid && (
-                <button
-                  onClick={() => setShowWifiModal(true)}
-                  className="p-2 rounded-full text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
-                  title="Guest Wi-Fi"
-                >
-                  <Wifi className="w-3.5 h-3.5" />
-                </button>
-              )}
             </div>
           </div>
 
@@ -681,10 +725,8 @@ export const CustomerMenuView: React.FC<CustomerMenuViewProps> = ({
               ))}
             </div>
           </div>
-        </>
-      )}
 
-      {/* Menu Item Cards List */}
+          {/* Menu Item Cards List */}
       <div className="px-4 py-4 space-y-3">
         {filteredItems.length === 0 ? (
           <div className="text-center py-12 px-4 bg-white rounded-2xl border border-slate-200">
@@ -845,6 +887,8 @@ export const CustomerMenuView: React.FC<CustomerMenuViewProps> = ({
             </button>
           </div>
         </div>
+      )}
+        </>
       )}
 
       {/* Customization Bottom Sheet / Modal */}
@@ -1446,26 +1490,157 @@ export const CustomerMenuView: React.FC<CustomerMenuViewProps> = ({
         </div>
       )}
 
-      {/* Fullscreen Document / Menu Sheet Lightbox */}
+      {/* Fullscreen Document / Menu Sheet Lightbox with Interactive HD Pan & Zoom */}
       {lightboxImageUrl && (
-        <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col p-4 animate-in fade-in">
-          <div className="flex items-center justify-between text-white pb-3">
-            <span className="text-xs font-bold text-slate-300">
-              High-Definition Menu Sheet
-            </span>
-            <button
-              onClick={() => setLightboxImageUrl(null)}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
+        <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col p-3 sm:p-4 select-none animate-in fade-in">
+          {/* Lightbox Header Bar with Zoom & Action Controls */}
+          <div className="flex items-center justify-between text-white pb-3 border-b border-white/10 shrink-0 gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs sm:text-sm font-bold text-slate-100">
+                HD Menu Sheet
+              </span>
+              <span className="text-[11px] font-mono font-bold bg-white/15 px-2 py-0.5 rounded-md text-emerald-400">
+                {Math.round(lightboxZoom * 100)}%
+              </span>
+            </div>
+
+            {/* Toolbar Buttons: Zoom Out, Zoom In, Reset, Download, Open Tab, Close */}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setLightboxZoom((z) => {
+                    const next = Math.max(1, Number((z - 0.5).toFixed(1)));
+                    if (next === 1) setLightboxPan({ x: 0, y: 0 });
+                    return next;
+                  });
+                }}
+                disabled={lightboxZoom <= 1}
+                className="p-1.5 sm:p-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 text-white transition-colors cursor-pointer"
+                title="Zoom Out (-)"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLightboxZoom((z) => Math.min(3.5, Number((z + 0.5).toFixed(1))));
+                }}
+                disabled={lightboxZoom >= 3.5}
+                className="p-1.5 sm:p-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 text-white transition-colors cursor-pointer"
+                title="Zoom In (+)"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+              {lightboxZoom > 1 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLightboxZoom(1);
+                    setLightboxPan({ x: 0, y: 0 });
+                  }}
+                  className="p-1.5 sm:p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+                  title="Reset to 100%"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => handleDownloadActiveDoc()}
+                className="p-1.5 sm:p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+                title="Download HD Menu"
+              >
+                <Download className="w-4 h-4" />
+              </button>
+              <a
+                href={lightboxImageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1.5 sm:p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+                title="Open raw image in new tab"
+              >
+                <ExternalLink className="w-4 h-4" />
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  setLightboxImageUrl(null);
+                  setLightboxZoom(1);
+                  setLightboxPan({ x: 0, y: 0 });
+                }}
+                className="p-1.5 sm:p-2 rounded-lg bg-rose-500/80 hover:bg-rose-500 text-white transition-colors cursor-pointer ml-1"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-          <div className="flex-1 flex items-center justify-center overflow-auto p-2">
+
+          {/* Interactive Zoomable / Pannable Image Viewport */}
+          <div
+            className={`flex-1 relative overflow-hidden flex items-center justify-center p-2 ${
+              lightboxZoom > 1 ? (isPanning ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in'
+            }`}
+            onMouseDown={(e) => {
+              if (lightboxZoom > 1) {
+                setIsPanning(true);
+                setPanStart({ x: e.clientX - lightboxPan.x, y: e.clientY - lightboxPan.y });
+              }
+            }}
+            onMouseMove={(e) => {
+              if (isPanning && lightboxZoom > 1) {
+                setLightboxPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+              }
+            }}
+            onMouseUp={() => setIsPanning(false)}
+            onMouseLeave={() => setIsPanning(false)}
+            onTouchStart={(e) => {
+              if (lightboxZoom > 1 && e.touches.length === 1) {
+                setIsPanning(true);
+                setPanStart({
+                  x: e.touches[0].clientX - lightboxPan.x,
+                  y: e.touches[0].clientY - lightboxPan.y,
+                });
+              }
+            }}
+            onTouchMove={(e) => {
+              if (isPanning && lightboxZoom > 1 && e.touches.length === 1) {
+                setLightboxPan({
+                  x: e.touches[0].clientX - panStart.x,
+                  y: e.touches[0].clientY - panStart.y,
+                });
+              }
+            }}
+            onTouchEnd={() => setIsPanning(false)}
+            onDoubleClick={() => {
+              if (lightboxZoom > 1) {
+                setLightboxZoom(1);
+                setLightboxPan({ x: 0, y: 0 });
+              } else {
+                setLightboxZoom(2);
+                setLightboxPan({ x: 0, y: 0 });
+              }
+            }}
+          >
             <img
               src={lightboxImageUrl}
-              alt="Fullscreen Menu"
-              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
+              alt="Fullscreen HD Menu"
+              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl transition-transform will-change-transform"
+              style={{
+                transform: `translate(${lightboxPan.x}px, ${lightboxPan.y}px) scale(${lightboxZoom})`,
+                transition: isPanning ? 'none' : 'transform 0.18s ease-out',
+                imageRendering: '-webkit-optimize-contrast',
+              }}
+              draggable={false}
             />
+
+            {/* Subtle instruction tip badge */}
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-slate-900/85 backdrop-blur-md px-3.5 py-1.5 rounded-full text-[11px] font-medium text-slate-300 shadow-xl border border-white/10 pointer-events-none whitespace-nowrap">
+              {lightboxZoom > 1
+                ? 'Drag to pan around · Double-tap to reset'
+                : 'Double-tap or use buttons to zoom HD details'}
+            </div>
           </div>
         </div>
       )}

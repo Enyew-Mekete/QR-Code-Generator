@@ -197,7 +197,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-[#ebedf0] flex flex-col font-sans relative">
         {/* Full-width Responsive Mobile Customer Menu View */}
-        <div className="flex-1 max-w-md w-full mx-auto bg-[#ebedf0] min-h-screen">
+        <div className="flex-1 max-w-xl sm:max-w-2xl w-full mx-auto bg-[#ebedf0] min-h-screen">
           <CustomerMenuView
             restaurant={restaurant}
             categories={categories}
@@ -354,7 +354,7 @@ export default function App() {
       <footer className="bg-white border-t border-slate-200 py-4 px-6 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <div>
-            © 2026 DineQR · Dynamic Restaurant QR Codes & Real-Time Ordering System
+            © 2026 Guansa DineQR · Restaurant QR Code Menu System
           </div>
           <div className="flex items-center gap-4">
             <button

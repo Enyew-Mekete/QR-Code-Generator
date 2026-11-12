@@ -51,7 +51,8 @@ export const StorageService = {
           parsed.uploadedMenuFiles = INITIAL_RESTAURANT.uploadedMenuFiles;
         } else if (parsed.uploadedMenuFiles[0]?.url?.includes('image_6c71af98.png')) {
           parsed.uploadedMenuFiles[0].url = './assets/guansa_menu_sheet.png';
-          parsed.uploadedMenuFiles[0].name = 'Guansa Coffee Hub - Official Menu Sheet.png';
+          parsed.uploadedMenuFiles[0].name = 'Guansa Coffee Hub - Official Menu Sheet (HD).png';
+          parsed.uploadedMenuFiles[0].sizeFormatted = '1.8 MB (HD)';
         }
 
         // Ensure logoUrl is crisp clean logo

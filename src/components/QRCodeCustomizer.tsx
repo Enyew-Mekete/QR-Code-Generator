@@ -68,7 +68,6 @@ export const QRCodeCustomizer: React.FC<QRCodeCustomizerProps> = ({
   // Local editable copies
   const [currentQR, setCurrentQR] = useState<RestaurantQRCode>({ ...qrCode });
   const [currentRestaurant, setCurrentRestaurant] = useState<RestaurantProfile>({ ...restaurant });
-  const [items, setItems] = useState<MenuItem[]>([...menuItems]);
 
   // File input refs
   const menuFileInputRef = useRef<HTMLInputElement>(null);
@@ -79,7 +78,6 @@ export const QRCodeCustomizer: React.FC<QRCodeCustomizerProps> = ({
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     design: true,
     images: true,
-    menu: false,
     basic: false,
     welcome: false,
     languages: false,
@@ -196,27 +194,6 @@ export const QRCodeCustomizer: React.FC<QRCodeCustomizerProps> = ({
       ...prev,
       uploadedMenuFiles: files,
     }));
-  };
-
-  // Instant Availability Toggle
-  const handleToggleItemAvailability = (itemId: string) => {
-    const updated = items.map((i) =>
-      i.id === itemId ? { ...i, isAvailable: !i.isAvailable } : i
-    );
-    setItems(updated);
-    onUpdateMenuItems(updated);
-    StorageService.toggleItemAvailability(itemId);
-  };
-
-  // Instant Price Modification
-  const handleItemPriceChange = (itemId: string, newPriceStr: string) => {
-    const price = parseFloat(newPriceStr);
-    if (!isNaN(price) && price >= 0) {
-      const updated = items.map((i) => (i.id === itemId ? { ...i, price } : i));
-      setItems(updated);
-      onUpdateMenuItems(updated);
-      StorageService.quickUpdatePrice(itemId, price);
-    }
   };
 
   const handleSave = () => {
@@ -871,86 +848,6 @@ export const QRCodeCustomizer: React.FC<QRCodeCustomizerProps> = ({
             )}
           </div>
 
-          {/* Section 5: Real-time Menu Pricing & Item Availability */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-            <button
-              onClick={() => toggleSection('menu')}
-              className="w-full px-5 py-4 flex items-center justify-between text-left font-bold text-slate-900 hover:bg-slate-50 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5">
-                <UtensilsCrossed className="w-4 h-4 text-emerald-700" />
-                <span className="text-sm">Real-Time Menu Pricing & Item Availability</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md">
-                  Live Instant Sync
-                </span>
-                {openSections.menu ? (
-                  <ChevronUp className="w-4 h-4 text-slate-400" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-slate-400" />
-                )}
-              </div>
-            </button>
-
-            {openSections.menu && (
-              <div className="px-5 pb-5 pt-1 space-y-3 border-t border-slate-100 text-xs">
-                <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                  {items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-3 hover:border-slate-300 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <img
-                          src={item.imageUrl}
-                          alt={item.name}
-                          className="w-10 h-10 rounded-lg object-cover shrink-0"
-                          referrerPolicy="no-referrer"
-                        />
-                        <div className="min-w-0">
-                          <div className="font-bold text-slate-900 truncate">
-                            {item.name}
-                          </div>
-                          <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                            <span>{categories.find((c) => c.id === item.categoryId)?.name}</span>
-                            <span>·</span>
-                            <span>{item.isAvailable ? 'In Stock' : 'Sold Out'}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 shrink-0">
-                        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1">
-                          <span className="text-slate-400 font-bold">
-                            {currentRestaurant.currencySymbol}
-                          </span>
-                          <input
-                            type="number"
-                            step="0.25"
-                            value={item.price}
-                            onChange={(e) => handleItemPriceChange(item.id, e.target.value)}
-                            className="w-14 text-xs font-bold font-mono text-slate-900 focus:outline-none"
-                          />
-                        </div>
-
-                        <button
-                          onClick={() => handleToggleItemAvailability(item.id)}
-                          className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                            item.isAvailable
-                              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                              : 'bg-rose-100 text-rose-700 hover:bg-rose-200'
-                          }`}
-                        >
-                          {item.isAvailable ? 'In Stock' : 'Sold Out'}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Right Column: LIVE Interactive Phone Simulator with [Preview] / [QR Code] Tabs (matching screenshot 5!) */}
@@ -998,7 +895,7 @@ export const QRCodeCustomizer: React.FC<QRCodeCustomizerProps> = ({
                 <CustomerMenuView
                   restaurant={currentRestaurant}
                   categories={categories}
-                  menuItems={items}
+                  menuItems={menuItems}
                   initialTableNumber={currentQR.tableNumber || 4}
                 />
               </MobileDeviceFrame>
@@ -1061,17 +958,25 @@ export const QRCodeCustomizer: React.FC<QRCodeCustomizerProps> = ({
                           <span>Test in Tab</span>
                         </a>
                         <button
-                          onClick={() => {
-                            if (qrPreviewUrl) {
-                              QRGeneratorService.downloadImage(
-                                qrPreviewUrl,
-                                `${currentRestaurant.name.toLowerCase().replace(/\s+/g, '_')}_qr.png`
-                              );
-                            }
+                          onClick={async () => {
+                            const hdUrl = await QRGeneratorService.generateBrandedCanvas(
+                              scanUrl,
+                              currentQR.styling,
+                              {
+                                restaurantName: currentRestaurant.name,
+                                tableLabel: currentQR.tableNumber ? `Table ${currentQR.tableNumber}` : undefined,
+                                logoSrc: currentQR.styling.customLogoUrl || (currentQR.styling.logoInCenter ? currentRestaurant.logoUrl : undefined),
+                                highRes: true,
+                              }
+                            );
+                            QRGeneratorService.downloadImage(
+                              hdUrl || qrPreviewUrl,
+                              `${currentRestaurant.name.toLowerCase().replace(/\s+/g, '_')}_qr_hd.png`
+                            );
                           }}
                           className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-xs"
                         >
-                          <span>Download QR</span>
+                          <span>Download High-Res QR</span>
                         </button>
                       </div>
                     </div>

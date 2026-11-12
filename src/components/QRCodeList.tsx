@@ -92,6 +92,7 @@ export const QRCodeList: React.FC<QRCodeListProps> = ({
         restaurantName: restaurant.name,
         tableLabel: qr.tableNumber ? `Table ${qr.tableNumber}` : undefined,
         logoSrc: qr.styling.customLogoUrl || (qr.styling.logoInCenter ? restaurant.logoUrl : undefined),
+        highRes: true,
       }
     );
     QRGeneratorService.downloadImage(

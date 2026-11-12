@@ -5,11 +5,15 @@ export const QRGeneratorService = {
   /**
    * Generates a base QR Data URL using the qrcode library
    */
-  async generateBasicDataUrl(text: string, styling: QRCodeStyling): Promise<string> {
+  async generateBasicDataUrl(
+    text: string,
+    styling: QRCodeStyling,
+    scaleMultiplier: number = 1
+  ): Promise<string> {
     try {
       const dataUrl = await QRCode.toDataURL(text, {
-        width: styling.size || 300,
-        margin: 2,
+        width: (styling.size || 320) * scaleMultiplier,
+        margin: 2 * scaleMultiplier,
         color: {
           dark: styling.fgColor || '#1e3a2b',
           light: styling.bgColor || '#ffffff',
@@ -30,7 +34,7 @@ export const QRGeneratorService = {
     try {
       const svg = await QRCode.toString(text, {
         type: 'svg',
-        width: styling.size || 300,
+        width: styling.size || 320,
         margin: 2,
         color: {
           dark: styling.fgColor || '#1e3a2b',
@@ -47,6 +51,7 @@ export const QRGeneratorService = {
 
   /**
    * Generates a fully composed branded QR image with optional frame, text badge, and center logo
+   * Supports scale multiplier for crystal clear ultra-high-resolution print and downloads.
    */
   async generateBrandedCanvas(
     text: string,
@@ -55,11 +60,14 @@ export const QRGeneratorService = {
       restaurantName?: string;
       tableLabel?: string;
       logoSrc?: string;
+      scale?: number;
+      highRes?: boolean;
     }
   ): Promise<string> {
     return new Promise(async (resolve) => {
       try {
-        const rawQrDataUrl = await this.generateBasicDataUrl(text, styling);
+        const scale = options?.scale || (options?.highRes ? 3 : 1);
+        const rawQrDataUrl = await this.generateBasicDataUrl(text, styling, scale);
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         if (!ctx) {
@@ -69,16 +77,20 @@ export const QRGeneratorService = {
         const qrImg = new Image();
         qrImg.crossOrigin = 'anonymous';
         qrImg.onload = () => {
-          const qrSize = styling.size || 320;
+          const qrSize = (styling.size || 320) * scale;
           const hasFrame = styling.frameStyle !== 'none';
-          const topExtra = styling.frameStyle === 'badge-top' || styling.frameStyle === 'table-card' ? 70 : 0;
-          const bottomExtra = styling.frameStyle === 'scan-me' || styling.frameStyle === 'table-card' ? 65 : 0;
+          const topExtra = (styling.frameStyle === 'badge-top' || styling.frameStyle === 'table-card' ? 70 : 0) * scale;
+          const bottomExtra = (styling.frameStyle === 'scan-me' || styling.frameStyle === 'table-card' ? 65 : 0) * scale;
 
-          const totalWidth = qrSize + (hasFrame ? 48 : 0);
-          const totalHeight = qrSize + topExtra + bottomExtra + (hasFrame ? 40 : 0);
+          const totalWidth = qrSize + (hasFrame ? 48 * scale : 0);
+          const totalHeight = qrSize + topExtra + bottomExtra + (hasFrame ? 40 * scale : 0);
 
           canvas.width = totalWidth;
           canvas.height = totalHeight;
+
+          // Crisp image rendering
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
 
           // Background
           ctx.fillStyle = styling.bgColor || '#ffffff';
@@ -86,52 +98,52 @@ export const QRGeneratorService = {
 
           // Card or border styling
           if (hasFrame) {
-            ctx.lineWidth = 4;
+            ctx.lineWidth = 4 * scale;
             ctx.strokeStyle = styling.fgColor || '#1e3a2b';
             ctx.beginPath();
-            ctx.roundRect(8, 8, totalWidth - 16, totalHeight - 16, 20);
+            ctx.roundRect(8 * scale, 8 * scale, totalWidth - 16 * scale, totalHeight - 16 * scale, 20 * scale);
             ctx.stroke();
 
             // Top Header if applicable
             if (topExtra > 0) {
               ctx.fillStyle = styling.fgColor || '#1e3a2b';
               ctx.beginPath();
-              ctx.roundRect(8, 8, totalWidth - 16, 52, [18, 18, 0, 0]);
+              ctx.roundRect(8 * scale, 8 * scale, totalWidth - 16 * scale, 52 * scale, [18 * scale, 18 * scale, 0, 0]);
               ctx.fill();
 
               ctx.fillStyle = '#ffffff';
-              ctx.font = 'bold 15px system-ui, -apple-system, sans-serif';
+              ctx.font = `bold ${Math.round(15 * scale)}px system-ui, -apple-system, sans-serif`;
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
               ctx.fillText(
-                (styling.frameText || options?.tableLabel || options?.restaurantName || 'SCAN TO ORDER').toUpperCase(),
+                (styling.frameText || options?.tableLabel || options?.restaurantName || 'SCAN TO VIEW MENU').toUpperCase(),
                 totalWidth / 2,
-                34
+                34 * scale
               );
             }
           }
 
           // Draw QR Code
           const qrX = (totalWidth - qrSize) / 2;
-          const qrY = (hasFrame && topExtra > 0 ? topExtra + 12 : hasFrame ? 20 : 0);
+          const qrY = (hasFrame && topExtra > 0 ? topExtra + 12 * scale : hasFrame ? 20 * scale : 0);
           ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
 
           // Bottom Call To Action Banner if scan-me
           if (styling.frameStyle === 'scan-me' || (styling.frameStyle === 'table-card' && bottomExtra > 0)) {
-            const bannerY = qrY + qrSize + 8;
+            const bannerY = qrY + qrSize + 8 * scale;
             ctx.fillStyle = styling.fgColor || '#1e3a2b';
             ctx.beginPath();
-            ctx.roundRect(24, bannerY, totalWidth - 48, 44, 12);
+            ctx.roundRect(24 * scale, bannerY, totalWidth - 48 * scale, 44 * scale, 12 * scale);
             ctx.fill();
 
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 14px system-ui, -apple-system, sans-serif';
+            ctx.font = `bold ${Math.round(14 * scale)}px system-ui, -apple-system, sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(
-              (styling.frameText || 'SCAN TO VIEW MENU & ORDER').toUpperCase(),
+              (styling.frameText || 'SCAN TO VIEW MENU').toUpperCase(),
               totalWidth / 2,
-              bannerY + 22
+              bannerY + 22 * scale
             );
           }
 
@@ -145,17 +157,17 @@ export const QRGeneratorService = {
             // White rounded backing badge
             ctx.fillStyle = styling.bgColor || '#ffffff';
             ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
-            ctx.shadowBlur = 8;
+            ctx.shadowBlur = 8 * scale;
             ctx.beginPath();
-            ctx.arc(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2 + 5, 0, Math.PI * 2);
+            ctx.arc(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2 + 5 * scale, 0, Math.PI * 2);
             ctx.fill();
             ctx.shadowBlur = 0; // reset shadow
 
             // Outer ring
             ctx.strokeStyle = styling.fgColor || '#1e3a2b';
-            ctx.lineWidth = 2.5;
+            ctx.lineWidth = 2.5 * scale;
             ctx.beginPath();
-            ctx.arc(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2 + 5, 0, Math.PI * 2);
+            ctx.arc(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2 + 5 * scale, 0, Math.PI * 2);
             ctx.stroke();
 
             const targetLogoSrc = styling.customLogoUrl || options?.logoSrc;
@@ -172,13 +184,13 @@ export const QRGeneratorService = {
                 resolve(canvas.toDataURL('image/png'));
               };
               logoImg.onerror = () => {
-                drawDefaultCenterIcon(ctx, logoX, logoY, logoSize, styling.fgColor);
+                drawDefaultCenterIcon(ctx, logoX, logoY, logoSize, styling.fgColor, scale);
                 resolve(canvas.toDataURL('image/png'));
               };
               logoImg.src = targetLogoSrc;
               return;
             } else {
-              drawDefaultCenterIcon(ctx, logoX, logoY, logoSize, styling.fgColor);
+              drawDefaultCenterIcon(ctx, logoX, logoY, logoSize, styling.fgColor, scale);
             }
           }
 
@@ -215,7 +227,8 @@ function drawDefaultCenterIcon(
   x: number,
   y: number,
   size: number,
-  color: string
+  color: string,
+  _scale: number = 1
 ) {
   ctx.fillStyle = color || '#1e3a2b';
   // Draw sleek restaurant fork & spoon silhouette

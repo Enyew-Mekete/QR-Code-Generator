@@ -38,13 +38,24 @@ export const PrintTableTentModal: React.FC<PrintTableTentModalProps> = ({
     window.print();
   };
 
-  const handleDownload = () => {
-    if (qrDataUrl) {
-      QRGeneratorService.downloadImage(
-        qrDataUrl,
-        `${restaurant.name.toLowerCase().replace(/\s+/g, '_')}_table_${qrCode.tableNumber || 'menu'}_qr.png`
-      );
-    }
+  const handleDownload = async () => {
+    const scanUrl = UrlResolver.getScanUrl(qrCode);
+    const hdUrl = await QRGeneratorService.generateBrandedCanvas(
+      scanUrl,
+      qrCode.styling,
+      {
+        restaurantName: restaurant.name,
+        tableLabel: qrCode.tableNumber ? `Table ${qrCode.tableNumber}` : undefined,
+        logoSrc:
+          qrCode.styling.customLogoUrl ||
+          (qrCode.styling.logoInCenter ? restaurant.logoUrl : undefined),
+        highRes: true,
+      }
+    );
+    QRGeneratorService.downloadImage(
+      hdUrl || qrDataUrl,
+      `${restaurant.name.toLowerCase().replace(/\s+/g, '_')}_table_${qrCode.tableNumber || 'menu'}_qr_hd.png`
+    );
   };
 
   return (
